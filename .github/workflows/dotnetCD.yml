@@ -1,0 +1,49 @@
+name: .NET CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 5.0.x
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --no-restore
+      - name: Test
+        run: dotnet test --no-build --verbosity normal
+  
+  deploy: 
+
+    runs-on: ubuntu-latest
+    needs: test
+    if: success() && github.ref == 'refs/heads/main' #Em caso de sucesso nos teste. Pega o ultimo commit da main
+
+    steps:
+      - uses: actions/checkout@v2 
+      - name: App Settings Variable Substitution #Feature da MS. Chamada Verb substitution
+        uses: microsoft/variable-substitution@v1
+        with:
+          files: './Api/appsettings.json'
+        env:
+          ConnectionStrings.DefaultConnection: ${{ secrets.DB_CONNECTION_STRING}} #Podemos pegar a string de conneção do secret 
+      # Essa parte é para realizar o deploy no PAAS do heroku
+      - uses: akhileshns/heroku-deploy@v3.12.12 #<-- módulo feito por akhileshns. Com ele é possível fazer o deploy no heroku
+        with:
+          heroku_api_key: ${{secrets.HEROKU_API_KEY}}
+          heroku_app_name: "templatecicdwebapi"
+          heroku_email: "eoalcantara@gmail.com"
+          usedocker: true
